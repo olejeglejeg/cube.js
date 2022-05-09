@@ -121,10 +121,17 @@ describe('index.test', () => {
   });
 
   test('externalDriverFactory should return driver, failure', async () => {
-    const options: CreateOptions = { dbType: () => <any>'mongo', externalDriverFactory: () => <any>null, };
+    const options: CreateOptions = {
+      dbType: () => <any>'mongo',
+      externalDriverFactory: () => <any>null,
+    };
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [driverFactory, orchestratorOptions] = getCreateOrchestratorOptionsFromServer(options);
+    const [
+      driverFactory,
+      getConcurrency,
+      orchestratorOptions,
+    ] = getCreateOrchestratorOptionsFromServer(options);
 
     try {
       await orchestratorOptions.externalDriverFactory();
@@ -469,7 +476,7 @@ describe('index.test', () => {
         securityContext: null,
       });
       expect(createOrchestratorApiSpy.mock.calls.length).toEqual(1);
-      assertFn(createOrchestratorApiSpy.mock.calls[0][1]);
+      assertFn(createOrchestratorApiSpy.mock.calls[0][2]);
 
       createOrchestratorApiSpy.mockRestore();
 

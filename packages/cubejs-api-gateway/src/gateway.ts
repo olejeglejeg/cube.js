@@ -1132,7 +1132,7 @@ class ApiGateway {
     return this.adapterApi;
   }
 
-  public async contextByReq(req: Request, securityContext, requestId: string): Promise<ExtendedRequestContext> {
+  public async contextByReq(req: Request, securityContext, requestId: string, meta_fields?: Map<string, string>): Promise<ExtendedRequestContext> {
     const extensions = typeof this.extendContext === 'function' ? await this.extendContext(req) : {};
 
     return {
@@ -1141,7 +1141,8 @@ class ApiGateway {
       authInfo: securityContext,
       signedWithPlaygroundAuthSecret: Boolean(req.signedWithPlaygroundAuthSecret),
       requestId,
-      ...extensions
+      ...extensions,
+      ...(!meta_fields ? undefined : meta_fields)
     };
   }
 
@@ -1531,7 +1532,9 @@ class ApiGateway {
       ...restParams,
       ...(!context ? undefined : {
         securityContext: context.securityContext,
-        requestId: context.requestId
+        requestId: context.requestId,
+        ...(!context.app_name ? undefined : {app_name: context.app_name}),
+        ...(!context.protocol ? undefined : {protocol: context.protocol}),
       })
     });
   }

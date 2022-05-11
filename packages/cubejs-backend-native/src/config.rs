@@ -4,6 +4,7 @@ use crate::{auth::NodeBridgeAuthService, transport::NodeBridgeTransport};
 use cubesql::{
     config::{Config, CubeServices},
     sql::SqlAuthService,
+    telemetry::configure_tracker,
     transport::TransportService,
 };
 
@@ -13,7 +14,7 @@ pub struct NodeConfig {
 }
 
 impl NodeConfig {
-    pub fn new(port: Option<u16>, nonce: Option<String>) -> NodeConfig {
+    pub fn new(port: Option<u16>, nonce: Option<String>, telemetry: Option<bool>) -> NodeConfig {
         let config = Config::default();
         let config = config.update_config(|mut c| {
             if let Some(p) = port {
@@ -22,6 +23,10 @@ impl NodeConfig {
 
             if let Some(n) = nonce {
                 c.nonce = Some(n.as_bytes().to_vec());
+            }
+
+            if let Some(t) = telemetry {
+                c.telemetry_is_enabled = t;
             }
 
             c
@@ -36,6 +41,8 @@ impl NodeConfig {
         auth: Arc<NodeBridgeAuthService>,
     ) -> CubeServices {
         let injector = self.config.injector();
+
+        configure_tracker(self.config.config_obj()).await;
         self.config.configure_injector().await;
 
         injector

@@ -67,8 +67,8 @@ use crate::{
         ColumnFlags, ColumnType, Session, SessionManager, SessionState,
     },
     transport::{
-        df_data_type_by_column_type, V1CubeMetaDimensionExt, V1CubeMetaExt, V1CubeMetaMeasureExt,
-        V1CubeMetaSegmentExt,
+        df_data_type_by_column_type, TransportServiceMetaFields, V1CubeMetaDimensionExt,
+        V1CubeMetaExt, V1CubeMetaMeasureExt, V1CubeMetaSegmentExt,
     },
     CubeError, CubeErrorCauseType,
 };
@@ -1648,7 +1648,7 @@ impl QueryPlanner {
     }
 
     pub fn plan(&self, stmt: &ast::Statement) -> CompilationResult<QueryPlan> {
-        match (stmt, &self.state.protocol) {
+        let plan = match (stmt, &self.state.protocol) {
             (ast::Statement::Query(q), _) => self.select_to_plan(stmt, q),
             (ast::Statement::SetTransaction { .. }, _) => Ok(QueryPlan::MetaTabular(
                 StatusFlags::empty(),
@@ -1673,7 +1673,6 @@ impl QueryPlanner {
                 StatusFlags::empty(),
                 CommandCompletion::Select(0),
             )),
-            // TODO: enable for Postgres after variables are supported
             (ast::Statement::SetVariable { key_values }, _) => {
                 self.set_variable_to_plan(&key_values)
             }
@@ -1745,7 +1744,9 @@ impl QueryPlanner {
                 "Unsupported query type: {}",
                 stmt.to_string()
             ))),
-        }
+        };
+
+        plan
     }
 
     fn show_variable_to_plan(&self, variable: &Vec<Ident>) -> CompilationResult<QueryPlan> {
@@ -2294,6 +2295,7 @@ WHERE `TABLE_SCHEMA` = '{}'",
     fn create_execution_ctx(&self) -> DFSessionContext {
         let query_planner = Arc::new(CubeQueryPlanner::new(
             self.session_manager.server.transport.clone(),
+            self.planner_meta_fields(),
         ));
         let mut ctx = DFSessionContext::with_state(
             default_session_builder(
@@ -2448,6 +2450,27 @@ WHERE `TABLE_SCHEMA` = '{}'",
             rewrite_plan,
             ctx,
         ))
+    }
+
+    fn planner_meta_fields(&self) -> TransportServiceMetaFields {
+        // TODO: application_name for mysql
+        let app_name = if let Some(var) = self
+            .session_manager
+            .server
+            .all_variables(self.state.protocol.clone())
+            .get("application_name")
+        {
+            var.value.to_string()
+        } else {
+            "NULL".to_string()
+        };
+        let protocol = self.state.protocol.to_string();
+
+        let mut meta_fields = HashMap::new();
+        meta_fields.insert("app_name".to_string(), app_name);
+        meta_fields.insert("protocol".to_string(), protocol);
+
+        Some(meta_fields)
     }
 }
 
@@ -2762,6 +2785,7 @@ mod tests {
                 &self,
                 _query: V1LoadRequestQuery,
                 _ctx: Arc<AuthContext>,
+                _meta_fields: TransportServiceMetaFields,
             ) -> Result<V1LoadResponse, CubeError> {
                 panic!("It's a fake transport");
             }

@@ -10,7 +10,7 @@ use crate::{
         MySqlServer, PostgresServer, ServerManager, SessionManager, SqlAuthDefaultImpl,
         SqlAuthService,
     },
-    telemetry::{start_track_event_loop, stop_track_event_loop},
+    telemetry::{configure_tracker, start_track_event_loop, stop_track_event_loop},
     transport::{HttpTransport, TransportService},
     CubeError,
 };
@@ -124,6 +124,8 @@ pub trait ConfigObj: DIService {
     fn query_timeout(&self) -> u64;
 
     fn nonce(&self) -> &Option<Vec<u8>>;
+
+    fn telemetry_is_enabled(&self) -> bool;
 }
 
 #[derive(Debug, Clone)]
@@ -132,6 +134,7 @@ pub struct ConfigObjImpl {
     pub postgres_bind_address: Option<String>,
     pub nonce: Option<Vec<u8>>,
     pub query_timeout: u64,
+    pub telemetry_is_enabled: bool,
 }
 
 crate::di_service!(ConfigObjImpl, [ConfigObj]);
@@ -152,6 +155,10 @@ impl ConfigObj for ConfigObjImpl {
 
     fn query_timeout(&self) -> u64 {
         self.query_timeout
+    }
+
+    fn telemetry_is_enabled(&self) -> bool {
+        self.telemetry_is_enabled
     }
 }
 
@@ -180,6 +187,10 @@ impl Config {
                     .map(|port| format!("0.0.0.0:{}", port.parse::<u16>().unwrap())),
                 nonce: None,
                 query_timeout,
+                telemetry_is_enabled: env::var("TELEMETRY_IS_ENABLED")
+                    .ok()
+                    .map(|v| v.parse::<bool>().unwrap())
+                    .unwrap_or(true),
             }),
         }
     }
@@ -193,6 +204,7 @@ impl Config {
                 postgres_bind_address: None,
                 nonce: None,
                 query_timeout,
+                telemetry_is_enabled: false,
             }),
         }
     }
@@ -283,7 +295,9 @@ impl Config {
     }
 
     pub async fn configure(&self) -> CubeServices {
+        configure_tracker(self.config_obj()).await;
         self.configure_injector().await;
+
         self.cube_services().await
     }
 }

@@ -73,6 +73,7 @@ export class CubejsServer {
           ...config.http?.cors
         }
       },
+      telemetry: config.telemetry == null ? getEnv('telemetry') : config.telemetry,
     };
 
     this.core = CubeCore.create(config, systemOptions);

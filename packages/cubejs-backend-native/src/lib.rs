@@ -103,6 +103,14 @@ fn register_interface(mut cx: FunctionContext) -> JsResult<JsPromise> {
         None
     };
 
+    let telemetry_handle = options.get_value(&mut cx, "telemetry")?;
+    let telemetry = if telemetry_handle.is_a::<JsBoolean, _>(&mut cx) {
+        let value = telemetry_handle.downcast_or_throw::<JsBoolean, _>(&mut cx)?;
+        Some(value.value(&mut cx) as bool)
+    } else {
+        None
+    };
+
     let (deferred, promise) = cx.promise();
     let channel = cx.channel();
 
@@ -111,7 +119,7 @@ fn register_interface(mut cx: FunctionContext) -> JsResult<JsPromise> {
     let auth_service = NodeBridgeAuthService::new(cx.channel(), check_auth);
 
     std::thread::spawn(move || {
-        let config = NodeConfig::new(port, nonce);
+        let config = NodeConfig::new(port, nonce, telemetry);
 
         runtime.block_on(async move {
             let services = Arc::new(

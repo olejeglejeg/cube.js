@@ -6,7 +6,7 @@ use cubeclient::models::{V1Error, V1LoadRequestQuery, V1LoadResponse, V1MetaResp
 use cubesql::{
     di_service,
     sql::AuthContext,
-    transport::{MetaContext, TransportService},
+    transport::{MetaContext, TransportService, TransportServiceMetaFields},
     CubeError,
 };
 use serde_derive::Serialize;
@@ -37,6 +37,7 @@ struct LoadRequest {
     request: TransportRequest,
     user: Option<String>,
     query: V1LoadRequestQuery,
+    meta_fields: TransportServiceMetaFields,
 }
 
 #[derive(Debug, Serialize)]
@@ -74,6 +75,7 @@ impl TransportService for NodeBridgeTransport {
         &self,
         query: V1LoadRequestQuery,
         ctx: Arc<AuthContext>,
+        meta_fields: TransportServiceMetaFields,
     ) -> Result<V1LoadResponse, CubeError> {
         trace!("[transport] Request ->");
 
@@ -87,6 +89,7 @@ impl TransportService for NodeBridgeTransport {
                 },
                 user: Some(ctx.access_token.clone()),
                 query: query.clone(),
+                meta_fields: meta_fields.clone(),
             })?;
 
             let response: serde_json::Value = call_js_with_channel_as_callback(

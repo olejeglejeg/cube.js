@@ -4,10 +4,12 @@ use cubeclient::{
     models::{V1LoadRequest, V1LoadRequestQuery, V1LoadResponse},
 };
 
-use std::{fmt::Debug, sync::Arc, time::Duration};
+use std::{collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
 use tokio::{sync::RwLock as RwLockAsync, time::Instant};
 
 use crate::{compile::MetaContext, sql::AuthContext, CubeError};
+
+pub type TransportServiceMetaFields = Option<HashMap<String, String>>;
 
 #[async_trait]
 pub trait TransportService: Send + Sync + Debug {
@@ -19,6 +21,7 @@ pub trait TransportService: Send + Sync + Debug {
         &self,
         query: V1LoadRequestQuery,
         ctx: Arc<AuthContext>,
+        meta_fields: TransportServiceMetaFields,
     ) -> Result<V1LoadResponse, CubeError>;
 }
 
@@ -92,10 +95,12 @@ impl TransportService for HttpTransport {
         &self,
         query: V1LoadRequestQuery,
         ctx: Arc<AuthContext>,
+        meta_fields: TransportServiceMetaFields,
     ) -> Result<V1LoadResponse, CubeError> {
         let request = V1LoadRequest {
             query: Some(query),
             query_type: Some("multi".to_string()),
+            meta_fields,
         };
         let response =
             cube_api::load_v1(&self.get_client_config_for_ctx(ctx), Some(request)).await?;

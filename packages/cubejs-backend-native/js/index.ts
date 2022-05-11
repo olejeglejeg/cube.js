@@ -13,7 +13,8 @@ export interface CheckAuthPayload {
 export interface LoadPayload {
     request: Request,
     user: string,
-    query: any
+    query: any,
+    meta_fields?: Map<string, string>,
 }
 
 export interface MetaPayload {
@@ -24,6 +25,7 @@ export interface MetaPayload {
 export type SQLInterfaceOptions = {
     port?: number,
     nonce?: string,
+    telemetry?: boolean,
     checkAuth: (payload: CheckAuthPayload) => unknown | Promise<unknown>,
     load: (payload: LoadPayload) => unknown | Promise<unknown>,
     meta: (payload: MetaPayload) => unknown | Promise<unknown>,

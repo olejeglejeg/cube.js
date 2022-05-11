@@ -11,6 +11,7 @@ export type SQLServerOptions = {
   sqlNonce?: string,
   sqlUser?: string,
   sqlPassword?: string,
+  telemetry?: boolean,
 };
 
 export class SQLServer {
@@ -35,6 +36,7 @@ export class SQLServer {
     this.sqlInterfaceInstance = await registerInterface({
       port: options.sqlPort,
       nonce: options.sqlNonce,
+      telemetry: options.telemetry,
       checkAuth: async ({ request, user }) => {
         const { password } = await checkSqlAuth(request, user);
 
@@ -62,10 +64,10 @@ export class SQLServer {
           }
         });
       },
-      load: async ({ request, user, query }) => {
+      load: async ({ request, user, query, meta_fields }) => {
         // @todo Store security context in native
         const { securityContext } = await checkSqlAuth(request, user);
-        const context = await this.apiGateway.contextByReq(<any> request, securityContext, request.id);
+        const context = await this.apiGateway.contextByReq(<any> request, securityContext, request.id, meta_fields);
 
         // eslint-disable-next-line no-async-promise-executor
         return new Promise(async (resolve, reject) => {

@@ -1,4 +1,4 @@
-use crate::CubeError;
+use crate::{config::ConfigObj, CubeError};
 use chrono::{SecondsFormat, Utc};
 use core::mem;
 use log::{Level, LevelFilter, Log, Metadata, Record};
@@ -28,7 +28,7 @@ impl EventSender {
     pub async fn track_event(&self, event: String, mut properties: HashMap<String, String>) {
         properties.insert("event".to_string(), event);
         properties.insert("id".to_string(), nanoid!(16));
-        properties.insert("anonymousId".to_string(), "cubestore".to_string());
+        properties.insert("anonymousId".to_string(), "cubesql".to_string());
         properties.insert(
             "clientTimestamp".to_string(),
             Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
@@ -65,7 +65,7 @@ impl EventSender {
         for retry in 0..max_retries {
             let client = reqwest::ClientBuilder::new()
                 .use_rustls_tls()
-                .user_agent("cubestore")
+                .user_agent("cubesql")
                 .build()
                 .unwrap();
 
@@ -113,6 +113,12 @@ pub async fn start_track_event_loop() {
 
 pub async fn stop_track_event_loop() {
     SENDER.stop_loop().await;
+}
+
+pub async fn configure_tracker(config: Arc<dyn ConfigObj>) {
+    if !config.telemetry_is_enabled() {
+        stop_track_event_loop().await;
+    }
 }
 
 pub struct ReportingLogger {

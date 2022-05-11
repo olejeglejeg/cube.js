@@ -51,7 +51,7 @@ pub fn create_version_udf(v: String) -> ScalarUDF {
     });
 
     create_udf(
-        "version",
+        "pg_catalog.version",
         vec![],
         Arc::new(DataType::Utf8),
         Volatility::Immutable,
@@ -112,7 +112,7 @@ pub fn create_current_user_udf(state: Arc<SessionState>) -> ScalarUDF {
     });
 
     create_udf(
-        "current_user",
+        "pg_catalog.current_user",
         vec![],
         Arc::new(DataType::Utf8),
         Volatility::Immutable,
@@ -137,7 +137,7 @@ pub fn create_connection_id_udf(state: Arc<SessionState>) -> ScalarUDF {
     )
 }
 
-pub fn create_pg_backend_pid(state: Arc<SessionState>) -> ScalarUDF {
+pub fn create_pg_backend_pid_udf(state: Arc<SessionState>) -> ScalarUDF {
     let version = make_scalar_function(move |_args: &[ArrayRef]| {
         let mut builder = UInt32Builder::new(1);
         builder.append_value(state.connection_id).unwrap();
@@ -146,7 +146,7 @@ pub fn create_pg_backend_pid(state: Arc<SessionState>) -> ScalarUDF {
     });
 
     create_udf(
-        "pg_backend_pid",
+        "pg_catalog.pg_backend_pid",
         vec![],
         Arc::new(DataType::UInt32),
         Volatility::Immutable,
@@ -164,7 +164,7 @@ pub fn create_current_schema_udf() -> ScalarUDF {
     });
 
     create_udf(
-        "current_schema",
+        "pg_catalog.current_schema",
         vec![],
         Arc::new(DataType::Utf8),
         Volatility::Immutable,
@@ -723,7 +723,7 @@ pub fn create_date_udf() -> ScalarUDF {
         Arc::new(move |_| Ok(Arc::new(DataType::Timestamp(TimeUnit::Nanosecond, None))));
 
     ScalarUDF::new(
-        "date",
+        "pg_catalog.date",
         &Signature::uniform(
             1,
             vec![
@@ -949,7 +949,7 @@ pub fn create_date_add_udf() -> ScalarUDF {
     )
 }
 
-pub fn create_str_to_date() -> ScalarUDF {
+pub fn create_str_to_date_udf() -> ScalarUDF {
     let fun: Arc<dyn Fn(&[ColumnarValue]) -> Result<ColumnarValue> + Send + Sync> =
         Arc::new(move |args: &[ColumnarValue]| {
             let timestamp = match &args[0] {
@@ -1005,7 +1005,7 @@ pub fn create_str_to_date() -> ScalarUDF {
     )
 }
 
-pub fn create_current_timestamp() -> ScalarUDF {
+pub fn create_current_timestamp_udf() -> ScalarUDF {
     let fun: Arc<dyn Fn(&[ColumnarValue]) -> Result<ColumnarValue> + Send + Sync> =
         Arc::new(move |_| panic!("Should be rewritten with UtcTimestamp function"));
 
@@ -1038,7 +1038,7 @@ pub fn create_current_schemas_udf() -> ScalarUDF {
     });
 
     create_udf(
-        "current_schemas",
+        "pg_catalog.current_schemas",
         vec![DataType::Boolean],
         Arc::new(DataType::List(Box::new(Field::new(
             "item",
@@ -1050,7 +1050,7 @@ pub fn create_current_schemas_udf() -> ScalarUDF {
     )
 }
 
-pub fn create_format_type_udf(name: &str) -> ScalarUDF {
+pub fn create_format_type_udf() -> ScalarUDF {
     let fun = make_scalar_function(move |args: &[ArrayRef]| {
         let oids = args[0].as_any().downcast_ref::<UInt32Array>().unwrap();
         let typemods = args[1].as_any().downcast_ref::<Int32Array>().unwrap();
@@ -1094,7 +1094,7 @@ pub fn create_format_type_udf(name: &str) -> ScalarUDF {
     let return_type: ReturnTypeFunction = Arc::new(move |_| Ok(Arc::new(DataType::Utf8)));
 
     ScalarUDF::new(
-        name,
+        "pg_catalog.format_type",
         &Signature::any(2, Volatility::Immutable),
         &return_type,
         &fun,
@@ -1231,25 +1231,23 @@ pub fn create_pg_numeric_scale_udf() -> ScalarUDF {
 
 pub fn create_pg_get_userbyid_udf(state: Arc<SessionState>) -> ScalarUDF {
     let fun = make_scalar_function(move |args: &[ArrayRef]| {
-        let role_oids = args[0].as_any().downcast_ref::<Int64Array>().unwrap();
-        let mut builder = StringBuilder::new(role_oids.len());
-        for i in 0..role_oids.len() {
-            let role_oid = role_oids.value(i);
+        let role_oids = args[0].as_any().downcast_ref::<UInt32Array>().unwrap();
 
-            let user = match role_oid {
-                10 => state.user().unwrap_or("postgres".to_string()),
-                _ => format!("unknown (OID={})", role_oid),
-            };
+        let result = role_oids
+            .iter()
+            .map(|oid| match oid {
+                Some(10) => Some(state.user().unwrap_or("postgres".to_string())),
+                Some(oid) => Some(format!("unknown (OID={})", oid)),
+                _ => None,
+            })
+            .collect::<StringArray>();
 
-            builder.append_value(user).unwrap();
-        }
-
-        Ok(Arc::new(builder.finish()))
+        Ok(Arc::new(result))
     });
 
     create_udf(
-        "pg_get_userbyid",
-        vec![DataType::Int64],
+        "pg_catalog.pg_get_userbyid",
+        vec![DataType::UInt32],
         Arc::new(DataType::Utf8),
         Volatility::Immutable,
         fun,
@@ -1279,7 +1277,7 @@ pub fn create_pg_get_expr_udf() -> ScalarUDF {
     )
 }
 
-pub fn create_pg_table_is_visible() -> ScalarUDF {
+pub fn create_pg_table_is_visible_udf() -> ScalarUDF {
     let fun = make_scalar_function(move |args: &[ArrayRef]| {
         assert!(args.len() == 1);
 
@@ -1309,37 +1307,7 @@ pub fn create_pg_table_is_visible() -> ScalarUDF {
     )
 }
 
-pub fn create_pg_get_userbyid() -> ScalarUDF {
-    let fun = make_scalar_function(move |args: &[ArrayRef]| {
-        assert!(args.len() == 1);
-
-        let oids_arr = downcast_primitive_arg!(args[0], "oid", UInt32Type);
-
-        let result = oids_arr
-            .iter()
-            .map(|oid| match oid {
-                Some(_oid) => Some("current".to_string()),
-                _ => None,
-            })
-            .collect::<StringArray>();
-
-        Ok(Arc::new(result))
-    });
-
-    let return_type: ReturnTypeFunction = Arc::new(move |_| Ok(Arc::new(DataType::Utf8)));
-
-    ScalarUDF::new(
-        "pg_catalog.pg_get_userbyid",
-        &Signature::one_of(
-            vec![TypeSignature::Exact(vec![DataType::UInt32])],
-            Volatility::Immutable,
-        ),
-        &return_type,
-        &fun,
-    )
-}
-
-pub fn create_pg_type_is_visible() -> ScalarUDF {
+pub fn create_pg_type_is_visible_udf() -> ScalarUDF {
     let fun = make_scalar_function(move |args: &[ArrayRef]| {
         let oids_arr = downcast_primitive_arg!(args[0], "oid", UInt32Type);
 
@@ -1373,7 +1341,7 @@ pub fn create_pg_type_is_visible() -> ScalarUDF {
     )
 }
 
-pub fn create_get_constraintdef_udf() -> ScalarUDF {
+pub fn create_pg_get_constraintdef_udf() -> ScalarUDF {
     let fun = make_scalar_function(move |args: &[ArrayRef]| {
         let oids_arr = downcast_primitive_arg!(args[0], "oid", UInt32Type);
         let result = oids_arr
@@ -1459,7 +1427,7 @@ macro_rules! generate_series_udtf {
     }};
 }
 
-pub fn create_generate_series_udtf(with_catalog_prefix: bool) -> TableUDF {
+pub fn create_generate_series_udtf() -> TableUDF {
     let fun = make_table_function(move |args: &[ArrayRef]| {
         assert!(args.len() == 2 || args.len() == 3);
 
@@ -1472,12 +1440,6 @@ pub fn create_generate_series_udtf(with_catalog_prefix: bool) -> TableUDF {
         Err(DataFusionError::Execution(format!("Unsupported type")))
     });
 
-    let fun_name = if with_catalog_prefix {
-        "generate_series"
-    } else {
-        "pg_catalog.generate_series"
-    };
-
     let return_type: ReturnTypeFunction = Arc::new(move |tp| {
         if tp.len() > 0 {
             Ok(Arc::new(tp[0].clone()))
@@ -1487,7 +1449,7 @@ pub fn create_generate_series_udtf(with_catalog_prefix: bool) -> TableUDF {
     });
 
     TableUDF::new(
-        fun_name,
+        "pg_catalog.generate_series",
         &Signature::one_of(
             vec![
                 TypeSignature::Exact(vec![DataType::Int64, DataType::Int64]),
@@ -1559,7 +1521,7 @@ pub fn create_unnest_udtf() -> TableUDF {
     });
 
     TableUDF::new(
-        "unnest",
+        "pg_catalog.unnest",
         &Signature::any(1, Volatility::Immutable),
         &return_type,
         &fun,
@@ -1614,7 +1576,7 @@ pub fn create_generate_subscripts_udtf() -> TableUDF {
     let return_type: ReturnTypeFunction = Arc::new(move |_tp| Ok(Arc::new(DataType::Int64)));
 
     TableUDF::new(
-        "generate_subscripts",
+        "pg_catalog.generate_subscripts",
         &Signature::one_of(
             vec![
                 // array anyarray, dim integer

@@ -302,7 +302,9 @@ impl LogicalPlanAnalysis {
                 )
                 .ok()?;
                 if let Expr::ScalarUDF { fun, .. } = &expr {
-                    if &fun.name == "str_to_date" || &fun.name == "date_add" || &fun.name == "date"
+                    if &fun.name == "str_to_date"
+                        || &fun.name == "date_add"
+                        || &fun.name == "pg_catalog.date"
                     {
                         Self::eval_constant_expr(&egraph, &expr)
                     } else {

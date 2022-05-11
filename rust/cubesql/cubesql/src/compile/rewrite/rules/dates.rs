@@ -49,7 +49,7 @@ impl RewriteRules for DateRules {
             rewrite(
                 "superset-week-to-date-trunc",
                 udf_expr(
-                    "date",
+                    "pg_catalog.date",
                     vec![udf_expr(
                         "date_sub",
                         vec![
@@ -80,7 +80,7 @@ impl RewriteRules for DateRules {
             rewrite(
                 "superset-month-to-date-trunc",
                 udf_expr(
-                    "date",
+                    "pg_catalog.date",
                     vec![udf_expr(
                         "date_sub",
                         vec![
@@ -105,7 +105,7 @@ impl RewriteRules for DateRules {
             rewrite(
                 "superset-year-to-date-trunc",
                 udf_expr(
-                    "date",
+                    "pg_catalog.date",
                     vec![udf_expr(
                         "date_sub",
                         vec![
@@ -132,7 +132,7 @@ impl RewriteRules for DateRules {
                 udf_expr(
                     "date_add",
                     vec![
-                        udf_expr("date", vec![column_expr("?column")]),
+                        udf_expr("pg_catalog.date", vec![column_expr("?column")]),
                         to_day_interval_expr(
                             udf_expr("hour", vec![column_expr("?column")]),
                             literal_string("hour"),
@@ -150,7 +150,7 @@ impl RewriteRules for DateRules {
                 udf_expr(
                     "date_add",
                     vec![
-                        udf_expr("date", vec![column_expr("?column")]),
+                        udf_expr("pg_catalog.date", vec![column_expr("?column")]),
                         to_day_interval_expr(
                             binary_expr(
                                 binary_expr(
@@ -176,7 +176,7 @@ impl RewriteRules for DateRules {
                 udf_expr(
                     "date_add",
                     vec![
-                        udf_expr("date", vec![column_expr("?column")]),
+                        udf_expr("pg_catalog.date", vec![column_expr("?column")]),
                         to_day_interval_expr(
                             binary_expr(
                                 binary_expr(
@@ -210,7 +210,7 @@ impl RewriteRules for DateRules {
             ),
             rewrite(
                 "date-to-date-trunc",
-                udf_expr("date", vec![column_expr("?column")]),
+                udf_expr("pg_catalog.date", vec![column_expr("?column")]),
                 fun_expr(
                     "DateTrunc",
                     vec![literal_string("day"), column_expr("?column")],
